@@ -6,6 +6,7 @@ import com.example.demo.entity.Session;
 import com.example.demo.service.AuditLogService;
 import com.example.demo.service.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,14 +20,12 @@ public class SessionController {
     private SessionService sessionService;
 
     @Autowired
-    private AuditLogService auditLogService; // Inject instance here
+    private AuditLogService auditLogService;
 
     @PostMapping
     public ResponseEntity<SessionDTO> createSession(@RequestBody SessionCreateRequestDTO requestDTO) {
-        // Pass the DTO to service; service handles UUID conversion
         Session session = sessionService.createSession(requestDTO);
 
-        // Call on the injected instance
         auditLogService.createAuditLog(
             "CREATE_SESSION",
             "Session created: sessionId=" + session.getSessionId() +
@@ -38,19 +37,28 @@ public class SessionController {
     }
 
     @GetMapping("/{sessionId}")
-    public ResponseEntity<SessionDTO> getSession(@PathVariable String sessionId) {
-        String formatted = sessionId.replaceFirst(
-            "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)",
-            "$1-$2-$3-$4-$5"
-        );
-        UUID uuid = UUID.fromString(formatted);
+    public ResponseEntity<?> getSession(@PathVariable String sessionId) {
+        UUID uuid;
+        try {
+            // Insert hyphens if missing and convert to UUID
+            String formatted = sessionId.replaceFirst(
+                "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)",
+                "$1-$2-$3-$4-$5"
+            );
+            uuid = UUID.fromString(formatted);
+        } catch (IllegalArgumentException ex) {
+            // Invalid UUID format
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid sessionId format: " + sessionId);
+        }
 
         Session session = sessionService.getSessionById(uuid);
         if (session == null) {
-            return ResponseEntity.notFound().build();
+            // Session not found
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Session not found with ID: " + sessionId);
         }
-        return ResponseEntity.ok(new SessionDTO(session));  // now includes captures
+
+        return ResponseEntity.ok(new SessionDTO(session));
     }
-
-
 }
