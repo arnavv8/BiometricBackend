@@ -1,4 +1,4 @@
-# Fingerprint Capture & Session Management API
+# Contactless Biometric API
 
 ## Project Overview
 This project is a backend API for managing fingerprint capture sessions. It allows creating sessions for users/devices, uploading fingerprint images, retrieving captures, and generating session-level reports. The API is built using **Spring Boot** and uses **API key-based authentication** for security.
