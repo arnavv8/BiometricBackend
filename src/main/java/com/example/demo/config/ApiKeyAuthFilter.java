@@ -55,11 +55,6 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
         String apiKey = request.getHeader(API_KEY_HEADER);
 
-        // Debug prints
-        System.out.println("Request Path: " + path);
-        System.out.println("Expected API Key: '" + expectedApiKey + "'");
-        System.out.println("Received API Key: '" + apiKey + "'");
-
         if (apiKey == null || !apiKey.trim().equals(expectedApiKey)) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.getWriter().write("Forbidden: Invalid API Key");
