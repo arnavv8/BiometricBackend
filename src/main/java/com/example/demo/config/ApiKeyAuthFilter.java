@@ -8,6 +8,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -23,11 +24,11 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         "/h2-console",
         "/swagger-ui",
         "/v3/api-docs",
-        "/captures"
+        "/uploads"
     );
 
     public ApiKeyAuthFilter(String expectedApiKey) {
-        this.expectedApiKey = expectedApiKey;
+        this.expectedApiKey = expectedApiKey.trim(); // Trim any spaces from .env
     }
 
     @Override
@@ -54,7 +55,12 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
         String apiKey = request.getHeader(API_KEY_HEADER);
 
-        if (apiKey == null || !apiKey.equals(expectedApiKey)) {
+        // Debug prints
+        System.out.println("Request Path: " + path);
+        System.out.println("Expected API Key: '" + expectedApiKey + "'");
+        System.out.println("Received API Key: '" + apiKey + "'");
+
+        if (apiKey == null || !apiKey.trim().equals(expectedApiKey)) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.getWriter().write("Forbidden: Invalid API Key");
             return;

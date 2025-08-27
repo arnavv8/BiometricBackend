@@ -5,6 +5,11 @@ import com.example.demo.dto.SessionDTO;
 import com.example.demo.entity.Session;
 import com.example.demo.service.AuditLogService;
 import com.example.demo.service.SessionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/sessions")
+@Tag(name = "Sessions", description = "Endpoints for manging fingerprint capture sessions")
 public class SessionController {
 
     @Autowired
@@ -22,8 +28,15 @@ public class SessionController {
     @Autowired
     private AuditLogService auditLogService;
 
+    @Operation(summary = "Create a new session", description = "Creates a contactless capture session for a user and device.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Session created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request payload")
+    })
     @PostMapping
-    public ResponseEntity<SessionDTO> createSession(@RequestBody SessionCreateRequestDTO requestDTO) {
+    public ResponseEntity<SessionDTO> createSession(
+            @Parameter(description = "Session creation request payload") @RequestBody SessionCreateRequestDTO requestDTO) {
+
         Session session = sessionService.createSession(requestDTO);
 
         auditLogService.createAuditLog(
@@ -36,8 +49,16 @@ public class SessionController {
         return ResponseEntity.ok(new SessionDTO(session));
     }
 
+    @Operation(summary = "Get session by ID", description = "Fetch details of a session by its UUID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Session retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid sessionId format"),
+            @ApiResponse(responseCode = "404", description = "Session not found")
+    })
     @GetMapping("/{sessionId}")
-    public ResponseEntity<?> getSession(@PathVariable String sessionId) {
+    public ResponseEntity<?> getSession(
+            @Parameter(description = "UUID of the session") @PathVariable String sessionId) {
+
         UUID uuid;
         try {
             // Insert hyphens if missing and convert to UUID
@@ -47,14 +68,12 @@ public class SessionController {
             );
             uuid = UUID.fromString(formatted);
         } catch (IllegalArgumentException ex) {
-            // Invalid UUID format
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Invalid sessionId format: " + sessionId);
         }
 
         Session session = sessionService.getSessionById(uuid);
         if (session == null) {
-            // Session not found
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Session not found with ID: " + sessionId);
         }

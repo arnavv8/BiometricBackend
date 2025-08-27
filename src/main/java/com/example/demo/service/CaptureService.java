@@ -45,11 +45,11 @@ public class CaptureService {
         Session session = sessionRepository.findById(sessionUuid)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid sessionId"));
 
-        // Save image locally & get path
-        String imageUrl = saveImage(imageFile);
-        File savedFile = new File(imageUrl);
+        // Save image (get both file path and public URL)
+        SavedImage savedImage = saveImage(imageFile);
+        File savedFile = new File(savedImage.getFilePath());
 
-        // Load image with OpenCV
+        // Load image with OpenCV (from local file path)
         Mat img = Imgcodecs.imread(savedFile.getAbsolutePath());
         if (img.empty()) {
             throw new IOException("Failed to read image with OpenCV: " + savedFile.getAbsolutePath());
@@ -64,12 +64,12 @@ public class CaptureService {
         // Build Capture entity
         Capture capture = new Capture();
         capture.setSession(session);
-        capture.setFingerPosition(FingerPosition.THUMB); // placeholder
+        capture.setFingerPosition(FingerPosition.THUMB); // placeholder for now
         capture.setBlurScore((float) blurScore);
         capture.setBrightnessLevel(brightnessLevel);
         capture.setFocusLocked(blurScore > 100); // simple heuristic
-        capture.setLivenessDetected(true); // stub
-        capture.setImageUrl(imageUrl);
+        capture.setLivenessDetected(true); // stub for now
+        capture.setImageUrl(savedImage.getUrl()); // store public URL in DB
         capture.setCapturedAt(Instant.now());
 
         return captureRepository.save(capture);
@@ -101,19 +101,52 @@ public class CaptureService {
                 .map(CaptureDTO::new)
                 .collect(Collectors.toList());
     }
+    
+    public List<CaptureDTO> getCapturesByDeviceId(String deviceId) {
+        return captureRepository.findAllBySessionDeviceId(deviceId)
+                .stream()
+                .map(CaptureDTO::new)
+                .collect(Collectors.toList());
+    }
 
     /**
-     * Save the uploaded image to disk.
+     * Small wrapper for saved image info (local path + public URL).
      */
-    private String saveImage(MultipartFile file) throws IOException {
+    public static class SavedImage {
+        private final String filePath; // local path for OpenCV
+        private final String url;      // public URL for API
+
+        public SavedImage(String filePath, String url) {
+            this.filePath = filePath;
+            this.url = url;
+        }
+
+        public String getFilePath() {
+            return filePath;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+    }
+
+    /**
+     * Save the uploaded image to disk and return both file path and URL.
+     */
+    private SavedImage saveImage(MultipartFile file) throws IOException {
         Path uploadPath = Paths.get("uploads");
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
+
         String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
         Path filePath = uploadPath.resolve(fileName);
         Files.write(filePath, file.getBytes());
-        return filePath.toString();
+
+        // Public URL mapping (served via ResourceHandlerConfig)
+        String url = "http://localhost:8080/uploads/" + fileName;
+
+        return new SavedImage(filePath.toString(), url);
     }
 
     /**
